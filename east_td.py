@@ -50,7 +50,6 @@ class EAST_td(ClamApp):
     def run_EAST(video_filename, mmif): # mmif here will be used for filtering out frames/
         sample_ratio = 150
         box_min_conf = .5 #minimum acceptable confidence
-
         def process_image(f):
             proc = cv2.medianBlur(f, 5) # reduce noise
             return proc
@@ -131,7 +130,6 @@ class EAST_td(ClamApp):
 
         net = cv2.dnn.readNet(os.path.join(".","frozen_east_text_detection.pb")) # load the model
         cap = cv2.VideoCapture(video_filename)
-
         counter = 0
         result = []
         while cap.isOpened():
