@@ -18,20 +18,21 @@ class EAST_td(ClamApp):
                     "description": "This tool applies EAST test detection to the video.",
                     "vendor": "Team CLAMS",
                     "requires": [MediaTypes.V],
-                    "produces": [AnnotationTypes.BOX]}
+                    "produces": [AnnotationTypes.TBOX]}
         return metadata
 
     def sniff(self, mmif):
         # this mock-up method always returns true
         return True
 
-    def annotate(self, mmif_json):
-        mmif = Mmif(mmif_json)
+    def annotate(self, mmif):
+        if not type(mmif) is Mmif:
+            mmif = Mmif(mmif)
         video_filename = mmif.get_medium_location(MediaTypes.V)
-        east_output = self.run_EAST(video_filename, mmif_json) #east_output is a list of frame number, [(x1, y1, x2, y2)] pairs
+        east_output = self.run_EAST(video_filename, mmif) #east_output is a list of frame number, [(x1, y1, x2, y2)] pairs
 
         new_view = mmif.new_view()
-        contain = new_view.new_contain(AnnotationTypes.OCR)
+        contain = new_view.new_contain(AnnotationTypes.TBOX)
         contain.producer = self.__class__
 
         for int_id, (start_frame, box_list) in enumerate(east_output):
@@ -47,8 +48,7 @@ class EAST_td(ClamApp):
 
     @staticmethod
     def run_EAST(video_filename, mmif): # mmif here will be used for filtering out frames/
-        #apply tesseract ocr to frames
-        sample_ratio = 60
+        sample_ratio = 150
         box_min_conf = .5 #minimum acceptable confidence
 
         def process_image(f):
@@ -187,4 +187,3 @@ if __name__ == "__main__":
     td_tool = EAST_td()
     td_service = Restifier(td_tool)
     td_service.run()
-
