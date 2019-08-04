@@ -1,7 +1,7 @@
 
 `docker build .`
 
-`docker run -p 5000:[host port] -v [host data path]:/data aafa8c92ca1c`
+`docker run -p 5000:[host port] -v [host data path]:/data [docker image name]`
 
 Tested with command:
 
