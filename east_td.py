@@ -48,7 +48,7 @@ class EAST_td(ClamApp):
 
     @staticmethod
     def run_EAST(video_filename, mmif): # mmif here will be used for filtering out frames/
-        sample_ratio = 150
+        sample_ratio = 30
         box_min_conf = .5 #minimum acceptable confidence
         def process_image(f):
             proc = cv2.medianBlur(f, 5) # reduce noise
@@ -117,31 +117,41 @@ class EAST_td(ClamApp):
 
         # initialize the original frame dimensions, new frame dimensions,
         # and ratio between the dimensions
-        (W, H) = (None, None)
-        (newW, newH) = (320, 320)  # newH and newW must a multiple of 32.
-        (rW, rH) = (None, None)
 
+        pos_frames = []
+        if AnnotationTypes.SHOT in mmif.contains.keys():
+            sample_ratio=1
+            shot_view = mmif.get_view_contains(AnnotationTypes.SHOT)
+            pos_frames = [int((int(a["start"])+int(a["end"]))/2) for a in shot_view["annotations"]]
+            # print (pos_frames)
         # define the two output layer names for the EAST detector model that
         # we are interested -- the first is the output probabilities and the
         # second can be used to derive the bounding box coordinates of text
+
         layerNames = [
         "feature_fusion/Conv_7/Sigmoid",
         "feature_fusion/concat_3"]
 
-        net = cv2.dnn.readNet(os.path.join(".","frozen_east_text_detection.pb")) # load the model
+        net = cv2.dnn.readNet(os.path.join("..","..","..","..","..","tool-data","clams_data","frozen_east_text_detection.pb")) # load the model
         cap = cv2.VideoCapture(video_filename)
         counter = 0
         result = []
         while cap.isOpened():
             ret, f = cap.read()
-
             if not ret:
                 break
+            if pos_frames:
+                if counter not in pos_frames:
+                    counter += 1
+                    continue
+
             if counter % sample_ratio == 0:
                 # resize the frame, maintaining the aspect ratio
-                f = imutils.resize(f, width=900)
+                # f = imutils.resize(f, width=900)
                 processed = process_image(f)
-                orig = f.copy()
+                (W, H) = (None, None)
+                (newW, newH) = (64, 64)  # newH and newW must a multiple of 32.
+                (rW, rH) = (None, None)
 
                 # if our frame dimensions are None, we still need to compute the
                 # ratio of old frame dimensions to new frame dimensions
@@ -151,7 +161,7 @@ class EAST_td(ClamApp):
                     rH = H / float(newH)
 
                 # resize the frame, this time ignoring aspect ratio
-                f = cv2.resize(f, (newW, newH))
+                processed = cv2.resize(processed, (newW, newH))
 
                 # construct a blob from the frame and then perform a forward pass
                 # of the model to obtain the two output layer sets
