@@ -46,10 +46,9 @@ class EAST_td(ClamApp):
             mmif.contains.update({contain: new_view.id})
         return mmif
 
-    @staticmethod
-    def run_EAST(video_filename, mmif): # mmif here will be used for filtering out frames/
+    def run_EAST(self, video_filename, mmif): # mmif here will be used for filtering out frames/
         sample_ratio = 30
-        box_min_conf = .5 #minimum acceptable confidence
+        box_min_conf = .1 #minimum acceptable confidence
         def process_image(f):
             proc = cv2.medianBlur(f, 5) # reduce noise
             return proc
@@ -117,13 +116,14 @@ class EAST_td(ClamApp):
 
         # initialize the original frame dimensions, new frame dimensions,
         # and ratio between the dimensions
-
-        pos_frames = []
-        if AnnotationTypes.SHOT in mmif.contains.keys():
-            sample_ratio=1
-            shot_view = mmif.get_view_contains(AnnotationTypes.SHOT)
-            pos_frames = [int((int(a["start"])+int(a["end"]))/2) for a in shot_view["annotations"]]
-            # print (pos_frames)
+        #
+        # ##TODO revisit applying detection to one frame per shot
+        # pos_frames = []
+        # if AnnotationTypes.SHOT in mmif.contains.keys():
+        #     sample_ratio=1
+        #     shot_view = mmif.get_view_contains(AnnotationTypes.SHOT)
+        #     pos_frames = [int((int(a["start"])+int(a["end"]))/2) for a in shot_view["annotations"]]
+        #     # print (pos_frames)
         # define the two output layer names for the EAST detector model that
         # we are interested -- the first is the output probabilities and the
         # second can be used to derive the bounding box coordinates of text
@@ -136,14 +136,15 @@ class EAST_td(ClamApp):
         cap = cv2.VideoCapture(video_filename)
         counter = 0
         result = []
+
         while cap.isOpened():
             ret, f = cap.read()
             if not ret:
                 break
-            if pos_frames:
-                if counter not in pos_frames:
-                    counter += 1
-                    continue
+            # if pos_frames:
+            #     if counter not in pos_frames:
+            #         counter += 1
+            #         continue
 
             if counter % sample_ratio == 0:
                 # resize the frame, maintaining the aspect ratio
@@ -184,8 +185,8 @@ class EAST_td(ClamApp):
                     endX = int(endX * rW)
                     endY = int(endY * rH)
                     box_list.append((startX, startY, endX, endY))
-            if len(box_list) > 0:
-                result.append((counter, box_list))
+                if len(box_list) > 0:
+                    result.append((counter, box_list))
             counter += 1
         return result
 
