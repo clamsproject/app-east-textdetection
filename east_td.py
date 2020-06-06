@@ -132,7 +132,7 @@ class EAST_td(ClamApp):
         "feature_fusion/Conv_7/Sigmoid",
         "feature_fusion/concat_3"]
 
-        net = cv2.dnn.readNet(os.path.join("..","..","..","..","..","tool-data","clams_data","frozen_east_text_detection.pb")) # load the model
+        net = cv2.dnn.readNet("frozen_east_text_detection.pb") # load the model
         cap = cv2.VideoCapture(video_filename)
         counter = 0
         result = []
