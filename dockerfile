@@ -1,7 +1,7 @@
 # https://www.learnopencv.com/install-opencv3-on-ubuntu/
 
 FROM python:3.7
-LABEL maintainer "kelleylynch@gmail.com"
+LABEL maintainer = "kelleylynch@gmail.com"
 ENV OPENCV_VERSION 3.4.2
 
 # Install all dependencies for OpenCV
@@ -89,4 +89,4 @@ WORKDIR ./app
 RUN pip3 install -r requirements.txt
 
 ENTRYPOINT ["python3"]
-CMD ["east_td.py"]
+CMD ["app.py"]
