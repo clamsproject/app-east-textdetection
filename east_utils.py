@@ -119,12 +119,13 @@ def run_EAST_video(mmif: Mmif) -> Mmif:
             break
         if counter % SAMPLE_RATIO == 0:
             result_list = image_to_east_boxes(f)
-            tp_annotation = new_view.new_annotation(
-                f"tp{counter}", AnnotationTypes.TimePoint
-            )
-            ##todo 2020-10-29 kelleylynch where does the document id need to go in this view
-            tp_annotation.add_property("point", counter)
-            tp_annotation.add_property("unit", "frame")
+            if result_list:
+                tp_annotation = new_view.new_annotation(
+                    f"tp{counter}", AnnotationTypes.TimePoint
+                )
+                ##todo 2020-10-29 kelleylynch where does the document id need to go in this view
+                tp_annotation.add_property("point", counter)
+                tp_annotation.add_property("unit", "frame")
             for box in result_list:
                 idx += 1
                 bb_annotation = new_view.new_annotation(
