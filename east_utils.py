@@ -134,7 +134,7 @@ def run_EAST_video(mmif: Mmif) -> Mmif:
                 bb_annotation.add_property("boxType", "text")
                 x0, y0, x1, y1 = box
                 bb_annotation.add_property(
-                    "coordinates", f"{[[x0, y0], [x1, y0], [x0, y1], [x1, y1]]}"
+                    "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
                 )
                 align_annotation = new_view.new_annotation(
                     f"a{idx}", AnnotationTypes.Alignment
@@ -156,6 +156,6 @@ def run_EAST_image(mmif: Mmif) -> Mmif:
         annotation.add_property("boxType", "text")
         x0, y0, x1, y1 = box
         annotation.add_property(
-            "coordinates", f"{[[x0, y0], [x1, y0], [x0, y1], [x1, y1]]}"
+            "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
         )
     return mmif
