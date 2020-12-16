@@ -3,17 +3,17 @@ from clams.restify import Restifier
 
 from east_utils import *
 
-class EAST_td(ClamsApp):
-    def appmetadata(self):
-        metadata = {"name": "EAST Text Detection",
-                    "description": "This tool applies EAST test detection to the video or image.",
-                    "vendor": "Team CLAMS",
-                    "requires": [DocumentTypes.ImageDocument, DocumentTypes.VideoDocument],
-                    "produces": [AnnotationTypes.BoundingBox]}
-        return metadata
+APP_VERSION = 0.1
 
+
+class EAST_td(ClamsApp):
     def setupmetadata(self):
-        return
+        return {"name": "EAST Text Detection",
+                "description": "This tool applies EAST test detection to the video or image.",
+                "vendor": "Team CLAMS",
+                "iri": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
+                "requires": [DocumentTypes.ImageDocument, DocumentTypes.VideoDocument],
+                "produces": [AnnotationTypes.BoundingBox]}
 
     def sniff(self, mmif):
         # this mock-up method always returns true
