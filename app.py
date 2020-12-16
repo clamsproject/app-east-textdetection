@@ -20,24 +20,15 @@ class EAST_td(ClamsApp):
         return True
 
     def annotate(self, mmif: Mmif) -> str:
-        video_filenames = mmif.get_documents_by_type(DocumentTypes.VideoDocument)
-        if video_filenames:
-            mmif = self.annotate_video(mmif)
-        else:
-            image_filenames = mmif.get_documents_by_type(DocumentTypes.ImageDocument)
-            if image_filenames:
-                mmif = self.annotate_image(mmif)
+        new_view = mmif.new_view()
+        new_view.metadata['app'] = self.metadata["iri"]
+
+        if mmif.get_documents_by_type(DocumentTypes.VideoDocument.value):
+            mmif = run_EAST_video(mmif, new_view)
+        elif mmif.get_documents_by_type(DocumentTypes.ImageDocument.value):
+            mmif = run_EAST_image(mmif, new_view)
         return str(mmif)
 
-    @staticmethod
-    def annotate_video(mmif: Mmif) -> Mmif:
-        mmif = run_EAST_video(mmif)
-        return mmif
-
-    @staticmethod
-    def annotate_image(mmif: Mmif) -> Mmif:
-        mmif = run_EAST_image(mmif)
-        return mmif
 
 if __name__ == "__main__":
     td_tool = EAST_td()

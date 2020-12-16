@@ -3,7 +3,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 from imutils.object_detection import non_max_suppression
-from mmif import Mmif, DocumentTypes, AnnotationTypes
+from mmif import Mmif, View, DocumentTypes, AnnotationTypes
 
 BOX_MIN_CONF = 0.1
 SAMPLE_RATIO = 30
@@ -107,10 +107,9 @@ def image_to_east_boxes(image: np.array) -> List[Tuple[int, int, int, int]]:
     return box_list
 
 
-def run_EAST_video(mmif: Mmif) -> Mmif:
+def run_EAST_video(mmif: Mmif, new_view: View) -> Mmif:
     cap = cv2.VideoCapture(mmif.get_document_location(DocumentTypes.VideoDocument))
     # todo 2020-10-27 kelleylynch consider replacing this with queued video reader
-    new_view = mmif.new_view()
     counter = 0
     idx = 0
     while cap.isOpened():
@@ -119,13 +118,6 @@ def run_EAST_video(mmif: Mmif) -> Mmif:
             break
         if counter % SAMPLE_RATIO == 0:
             result_list = image_to_east_boxes(f)
-            if result_list:
-                tp_annotation = new_view.new_annotation(
-                    f"tp{counter}", AnnotationTypes.TimePoint
-                )
-                ##todo 2020-10-29 kelleylynch where does the document id need to go in this view
-                tp_annotation.add_property("point", counter)
-                tp_annotation.add_property("unit", "frame")
             for box in result_list:
                 idx += 1
                 bb_annotation = new_view.new_annotation(
@@ -136,21 +128,14 @@ def run_EAST_video(mmif: Mmif) -> Mmif:
                 bb_annotation.add_property(
                     "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
                 )
-                align_annotation = new_view.new_annotation(
-                    f"a{idx}", AnnotationTypes.Alignment
-                )
-                align_annotation.add_property("source", tp_annotation.id)
-                align_annotation.add_property(
-                    "target", bb_annotation.id
-                )  ##todo 2020-10-29 kelleylynch are source and target correctly assigned?
+                bb_annotation.add_property("frame", counter)
         counter += 1
     return mmif
 
 
-def run_EAST_image(mmif: Mmif) -> Mmif:
+def run_EAST_image(mmif: Mmif, new_view:View) -> Mmif:
     image = cv2.imread(mmif.get_document_location(DocumentTypes.ImageDocument))
     box_list = image_to_east_boxes(image)
-    new_view = mmif.new_view()
     for idx, box in enumerate(box_list):
         annotation = new_view.new_annotation(f"td{idx}", AnnotationTypes.BoundingBox)
         annotation.add_property("boxType", "text")
