@@ -109,7 +109,6 @@ def image_to_east_boxes(image: np.array) -> List[Tuple[int, int, int, int]]:
 
 def run_EAST_video(mmif: Mmif, new_view: View) -> Mmif:
     cap = cv2.VideoCapture(mmif.get_document_location(DocumentTypes.VideoDocument))
-    # todo 2020-10-27 kelleylynch consider replacing this with queued video reader
     counter = 0
     idx = 0
     while cap.isOpened():

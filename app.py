@@ -7,25 +7,23 @@ APP_VERSION = 0.1
 
 
 class EAST_td(ClamsApp):
-    def setupmetadata(self):
+    def _setupmetadata(self):
         return {"name": "EAST Text Detection",
                 "description": "This tool applies EAST test detection to the video or image.",
-                "vendor": "Team CLAMS",
-                "iri": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
-                "requires": [DocumentTypes.ImageDocument, DocumentTypes.VideoDocument],
-                "produces": [AnnotationTypes.BoundingBox]}
+                "app_version": str(APP_VERSION),
+                "license":"",
+                "identifier": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
+                "input": [{"@type":DocumentTypes.ImageDocument},
+                          {"@type":DocumentTypes.VideoDocument}],
+                "output": [{"@type":AnnotationTypes.BoundingBox}]}
 
-    def sniff(self, mmif):
-        # this mock-up method always returns true
-        return True
-
-    def annotate(self, mmif: Mmif) -> str:
+    def annotate(self, mmif: Mmif, **kwargs) -> str:
         new_view = mmif.new_view()
-        new_view.metadata['app'] = self.metadata["iri"]
-
-        if mmif.get_documents_by_type(DocumentTypes.VideoDocument.value):
+        config = self.get_configuration(**kwargs)
+        self.sign_view(new_view, config)
+        if mmif.get_documents_by_type(DocumentTypes.VideoDocument):
             mmif = run_EAST_video(mmif, new_view)
-        elif mmif.get_documents_by_type(DocumentTypes.ImageDocument.value):
+        elif mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             mmif = run_EAST_image(mmif, new_view)
         return str(mmif)
 
