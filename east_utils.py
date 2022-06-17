@@ -119,9 +119,7 @@ def run_EAST_video(mmif: Mmif, new_view: View) -> Mmif:
             result_list = image_to_east_boxes(f)
             for box in result_list:
                 idx += 1
-                bb_annotation = new_view.new_annotation(
-                    f"td{idx}", AnnotationTypes.BoundingBox
-                )
+                bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
                 bb_annotation.add_property("boxType", "text")
                 x0, y0, x1, y1 = box
                 bb_annotation.add_property(
