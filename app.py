@@ -1,4 +1,5 @@
-from clams.app import ClamsApp, AppMetadata
+from clams import ClamsApp
+from clams.appmetadata import AppMetadata
 from clams.restify import Restifier
 
 from east_utils import *
