@@ -17,7 +17,11 @@ class EAST_td(ClamsApp):
             "app_license": "MIT",
             "url": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
             "identifier": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
-            "input": [{"@type": DocumentTypes.VideoDocument, "required": True}],
+            "input": [
+                {"@type": DocumentTypes.VideoDocument, "required": True},
+                {"@type": AnnotationTypes.TimeFrame, "required": False}
+
+            ],
             "output": [{"@type": AnnotationTypes.BoundingBox, "properties": {"boxType": "string"}},
                        {"@type": AnnotationTypes.Alignment, "properties":{}},
                        {"@type": AnnotationTypes.TimePoint, "properties":{}}
@@ -31,11 +35,24 @@ class EAST_td(ClamsApp):
                     "description": "Unit for output timepoint.",
                 },
                 {
+                    "name": "frameType",
+                    "type": "string",
+                    "choices": ["slate", "chyron", ""],
+                    "default": "",
+                    "description": "Segment of video to run on.",
+                },
+                {
                     "name": "sampleRatio",
                     "type": "integer",
                     "default": "30",
                     "description": "Frequency to sample frames.",
                 },
+                {
+                    "name": "stopAt",
+                    "type": "integer",
+                    "default": "540000", #appr. 5 hours
+                    "description": "Frame number to stop running.",
+                }
             ],
         }
         return AppMetadata(**metadata)
@@ -45,7 +62,7 @@ class EAST_td(ClamsApp):
         config = self.get_configuration(**kwargs)
         self.sign_view(new_view, config)
         if mmif.get_documents_by_type(DocumentTypes.VideoDocument):
-            mmif = run_EAST_video(mmif, new_view)
+            mmif = run_EAST_video(mmif, new_view, **kwargs)
         elif mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             mmif = run_EAST_image(mmif, new_view)
         return mmif
