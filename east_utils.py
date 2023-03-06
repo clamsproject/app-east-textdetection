@@ -118,16 +118,30 @@ def get_target_frame_numbers(mmif, frame_type, frames_per_segment=2):
     ]
     frame_number_ranges = [
         (tf_annotation.properties["start"], tf_annotation.properties["end"])
-        if tf_view.metadata.get_parameter("timeUnit") == "frame"
+        if tf_view.metadata.get_parameter("timeUnit") in ["frames", "frame"]
         else (convert_msec(tf_annotation.properties["start"]), convert_msec(tf_annotation.properties["end"]))
         for tf_view in views_with_tframe
         for tf_annotation in tf_view.get_annotations(AnnotationTypes.TimeFrame, frameType=frame_type)
     ]
-    target_frames = list(set([f for start, end in frame_number_ranges
+    target_frames = list(set([int(f) for start, end in frame_number_ranges
                                 for f in np.linspace(start, end, frames_per_segment, dtype=int)]))
 
     return target_frames
 
+def boxes_from_target_frames(target_frames:List[int], cap:cv2.VideoCapture, new_view:View):
+    for frame_number in target_frames:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+        _, f = cap.read()
+        result_list = image_to_east_boxes(f)
+        for box in result_list:
+            bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
+            bb_annotation.add_property("boxType", "text")
+            x0, y0, x1, y1 = box
+            bb_annotation.add_property(
+                "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
+            )
+            bb_annotation.add_property("frame", frame_number)
+    
 
 def run_EAST_video(mmif: Mmif, new_view: View, **kwargs) -> Mmif:
     cap = cv2.VideoCapture(mmif.get_document_location(DocumentTypes.VideoDocument))
@@ -144,28 +158,30 @@ def run_EAST_video(mmif: Mmif, new_view: View, **kwargs) -> Mmif:
     target_frames = []
     if frame_type:
         target_frames = get_target_frame_numbers(mmif, frame_type, 2)
-    while cap.isOpened():
-        if counter > stop_at:
-            break
-        ret, f = cap.read()
-        if target_frames:
-            if counter not in target_frames:
-                counter += 1 #todo move this
-                continue
-        if not ret:
-            break
-        if (counter % SAMPLE_RATIO == 0) or (counter in target_frames):
-            result_list = image_to_east_boxes(f)
-            for box in result_list:
-                idx += 1
-                bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-                bb_annotation.add_property("boxType", "text")
-                x0, y0, x1, y1 = box
-                bb_annotation.add_property(
-                    "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
-                )
-                bb_annotation.add_property("frame", counter)
-        counter += 1
+        boxes_from_target_frames(target_frames, cap, new_view)
+    else:
+        while cap.isOpened():
+            if counter > stop_at:
+                break
+            ret, f = cap.read()
+            if target_frames:
+                if counter not in target_frames:
+                    counter += 1 #todo move this
+                    continue
+            if not ret:
+                break
+            if (counter % SAMPLE_RATIO == 0) or (counter in target_frames):
+                result_list = image_to_east_boxes(f)
+                for box in result_list:
+                    idx += 1
+                    bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
+                    bb_annotation.add_property("boxType", "text")
+                    x0, y0, x1, y1 = box
+                    bb_annotation.add_property(
+                        "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
+                    )
+                    bb_annotation.add_property("frame", counter)
+            counter += 1
     return mmif
 
 

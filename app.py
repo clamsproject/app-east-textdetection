@@ -20,7 +20,6 @@ class EAST_td(ClamsApp):
             "input": [
                 {"@type": DocumentTypes.VideoDocument, "required": True},
                 {"@type": AnnotationTypes.TimeFrame, "required": False}
-
             ],
             "output": [{"@type": AnnotationTypes.BoundingBox, "properties": {"boxType": "string"}},
                        {"@type": AnnotationTypes.Alignment, "properties":{}},
@@ -37,8 +36,8 @@ class EAST_td(ClamsApp):
                 {
                     "name": "frameType",
                     "type": "string",
-                    "choices": ["slate", "chyron", ""],
-                    "default": "",
+                    "choices": ["slate", "chyron"],
+                    "default": " ",
                     "description": "Segment of video to run on.",
                 },
                 {
@@ -58,6 +57,7 @@ class EAST_td(ClamsApp):
         return AppMetadata(**metadata)
 
     def _annotate(self, mmif: Mmif, **kwargs) -> str:
+        kwargs["pretty"] = ""
         new_view = mmif.new_view()
         config = self.get_configuration(**kwargs)
         self.sign_view(new_view, config)
