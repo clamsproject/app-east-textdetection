@@ -1,73 +1,48 @@
-from clams import ClamsApp
-from clams.appmetadata import AppMetadata
-from clams.restify import Restifier
+import argparse
+from typing import Union
+
+# mostly likely you'll need these modules/classes
+from clams import ClamsApp, Restifier
 
 from east_utils import *
-
-APP_VERSION = 0.1
 
 
 class EAST_td(ClamsApp):
 
-    def _appmetadata(self):
-        metadata = {
-            "name": "EAST Text Detection",
-            "description": "This tool applies EAST test detection to the video or image.",
-            "app_version": str(APP_VERSION),
-            "app_license": "MIT",
-            "url": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
-            "identifier": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
-            "input": [
-                {"@type": DocumentTypes.VideoDocument, "required": True},
-                {"@type": AnnotationTypes.TimeFrame, "required": False}
-            ],
-            "output": [{"@type": AnnotationTypes.BoundingBox, "properties": {"boxType": "string"}},
-                       {"@type": AnnotationTypes.Alignment, "properties":{}},
-                       {"@type": AnnotationTypes.TimePoint, "properties":{}}
-            ],
-            "parameters": [
-                {
-                    "name": "timeUnit",
-                    "type": "string",
-                    "choices": ["frames", "milliseconds"],
-                    "default": "frames",
-                    "description": "Unit for output timepoint.",
-                },
-                {
-                    "name": "frameType",
-                    "type": "string",
-                    "choices": ["slate", "chyron"],
-                    "default": " ",
-                    "description": "Segment of video to run on.",
-                },
-                {
-                    "name": "sampleRatio",
-                    "type": "integer",
-                    "default": "30",
-                    "description": "Frequency to sample frames.",
-                },
-                {
-                    "name": "stopAt",
-                    "type": "integer",
-                    "default": "540000", #appr. 5 hours
-                    "description": "Frame number to stop running.",
-                }
-            ],
-        }
-        return AppMetadata(**metadata)
+    def __init__(self):
+        super().__init__()
 
-    def _annotate(self, mmif: Mmif, **kwargs) -> str:
+    def _appmetadata(self):
+        pass
+
+    def _annotate(self, mmif: Union[str, dict, Mmif], **parameters) -> Mmif:
         new_view = mmif.new_view()
-        config = self.get_configuration(**kwargs)
+        config = self.get_configuration(**parameters)
         self.sign_view(new_view, config)
         if mmif.get_documents_by_type(DocumentTypes.VideoDocument):
-            mmif = run_EAST_video(mmif, new_view, **kwargs)
+            mmif = run_EAST_video(mmif, new_view, **parameters)
         elif mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             mmif = run_EAST_image(mmif, new_view)
         return mmif
 
 
 if __name__ == "__main__":
-    td_tool = EAST_td()
-    td_service = Restifier(td_tool)
-    td_service.run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--port", action="store", default="5000", help="set port to listen"
+    )
+    parser.add_argument("--production", action="store_true", help="run gunicorn server")
+    # more arguments as needed
+    # parser.add_argument(more_arg...)
+
+    parsed_args = parser.parse_args()
+
+    # create the app instance
+    app = EAST_td()
+
+    http_app = Restifier(app, port=int(parsed_args.port)
+    )
+    if parsed_args.production:
+        http_app.serve_production()
+    else:
+        http_app.run()
