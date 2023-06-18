@@ -21,11 +21,13 @@ class EAST_td(ClamsApp):
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
             config = self.get_configuration(**parameters)
-            mmif = run_EAST_video(mmif, videodocument, new_view, **config)
+            new_view.new_contain(AnnotationTypes.BoundingBox, timeUnit=config["timeUnit"])
+            mmif = run_on_video(mmif, videodocument, new_view, **config)
         if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             # one view for all image documents
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
+            new_view.new_contain(AnnotationTypes.BoundingBox)
             mmif = run_on_images(mmif, new_view)
         return mmif
 

@@ -14,9 +14,7 @@ from clams.appmetadata import AppMetadata
 def appmetadata() -> AppMetadata:
     metadata = AppMetadata(
         name="EAST Text Detection",
-        description="OpenCV-based text localization app that used EAST text detection model. "
-                    "Text localization is a technique to detect the location of \"scene text\" in an image or video. "
-                    "The frozen EAST model is downloaded from this tutorial: https://learnopencv.com/deep-learning-based-text-detection-using-opencv-c-python/",
+        description="OpenCV-based text localization app that used EAST text detection model. Please visit the source code repository for full documentation.",
         app_license="Apache 2.0",
         identifier="east-textdetection",
         url="https://github.com/clamsproject/app-east-textdetection",
@@ -46,13 +44,13 @@ def appmetadata() -> AppMetadata:
         name="sampleRatio",
         type="integer",
         default="30",
-        description="Frequency to sample frames. Only works with VideoDocument input.",
+        description="Frequency to sample frames. Only works with VideoDocument input, and without TimeFrame input. (when `frameType` parameter is set, this parameter is ignored.)",
     )
     metadata.add_parameter(
         name="stopAt",
         type="integer",
         default="540000",  # appr. 5 hours
-        description="Frame number to stop running. Only works with VideoDocument input.",
+        description="Frame number to stop running. Only works with VideoDocument input. The default is 5400000, or roughly 5 hours of video at 30fps.",
     )
     
     return metadata

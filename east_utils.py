@@ -102,80 +102,48 @@ def image_to_east_boxes(image: np.array) -> List[Tuple[int, int, int, int]]:
     return box_list
 
 
-def get_target_frame_numbers(mmif, frame_type, frames_per_segment=2):
+def get_target_frame_numbers(mmif, views_with_tframe, frame_types, frames_per_segment=2):
     def convert_msec(time_msec):
         import math
         return math.floor(time_msec * 29.97)  # todo 6/1/21 kelleylynch assuming frame rate
 
-    views_with_tframe = [
-        tf_view
-        for tf_view in mmif.get_all_views_contain(AnnotationTypes.TimeFrame)
-        if tf_view.get_annotations(AnnotationTypes.TimeFrame, frameType=frame_type)
-    ]
-    frame_number_ranges = [
-        (tf_annotation.properties["start"], tf_annotation.properties["end"])
-        if tf_view.metadata.get_parameter("timeUnit") in ["frames", "frame"]
-        else (convert_msec(tf_annotation.properties["start"]), convert_msec(tf_annotation.properties["end"]))
-        for tf_view in views_with_tframe
-        for tf_annotation in tf_view.get_annotations(AnnotationTypes.TimeFrame, frameType=frame_type)
-    ]
+    frame_number_ranges = []
+    for tf_view in views_with_tframe:
+        for tf_annotation in tf_view.get_annotations(AnnotationTypes.TimeFrame):
+            if not frame_types or tf_annotation.properties.get("frameType") in frame_types:
+                frame_number_ranges.append(
+                    (tf_annotation.properties["start"], tf_annotation.properties["end"])
+                    if tf_view.metadata.get_parameter("timeUnit") in ["frames", "frame"]
+                    else (convert_msec(tf_annotation.properties["start"]), convert_msec(tf_annotation.properties["end"]))
+                )
     target_frames = list(set([int(f) for start, end in frame_number_ranges
                               for f in np.linspace(start, end, frames_per_segment, dtype=int)]))
 
     return target_frames
 
 
-def boxes_from_target_frames(target_frames:List[int], cap:cv2.VideoCapture, new_view:View):
+def boxes_from_target_frames(target_frames: List[int], cap: cv2.VideoCapture, new_view:View, output_unit: str):
     for frame_number in target_frames:
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
         _, f = cap.read()
         result_list = image_to_east_boxes(f)
         for box in result_list:
             bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
+            bb_annotation.add_property("timePoint", frame_number)
             bb_annotation.add_property("boxType", "text")
             x0, y0, x1, y1 = box
-            bb_annotation.add_property(
-                "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
-            )
-            bb_annotation.add_property("frame", frame_number)
-    
+            bb_annotation.add_property("coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]])
 
-def run_EAST_video(mmif: Mmif, new_view: View, **kwargs) -> Mmif:
+
+def run_on_video(mmif: Mmif, new_view: View, **kwargs) -> Mmif:
     cap = cv2.VideoCapture(mmif.get_document_location(DocumentTypes.VideoDocument))
-    counter = 0
-    idx = 0
-    stop_at = int(kwargs["stopAt"])
-    if "frameType" in kwargs:
-        frame_type = kwargs["frameType"]
+    frame_type = kwargs["frameType"]
+    views_with_tframe = mmif.get_all_views_contain(AnnotationTypes.TimeFrame)
+    if views_with_tframe:
+        target_frames = get_target_frame_numbers(mmif, views_with_tframe, frame_type, 2)
     else:
-        frame_type = ""
-    target_frames = []
-    if frame_type:
-        target_frames = get_target_frame_numbers(mmif, frame_type, 2)
-        boxes_from_target_frames(target_frames, cap, new_view)
-    else:
-        while cap.isOpened():
-            if counter > stop_at:
-                break
-            ret, f = cap.read()
-            if target_frames:
-                if counter not in target_frames:
-                    counter += 1 #todo move this
-                    continue
-            if not ret:
-                break
-            if (counter % kwargs['sampleRatio'] == 0) or (counter in target_frames):
-                result_list = image_to_east_boxes(f)
-                for box in result_list:
-                    idx += 1
-                    bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-                    bb_annotation.add_property("boxType", "text")
-                    x0, y0, x1, y1 = box
-                    bb_annotation.add_property(
-                        "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
-                    )
-                    bb_annotation.add_property("frame", counter)
-            counter += 1
+        target_frames = range(0, min(int(kwargs['stopAt']), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))), kwargs['sampleRatio'])
+    boxes_from_target_frames(target_frames, cap, new_view, kwargs["timeUnit"])
     return mmif
 
 
