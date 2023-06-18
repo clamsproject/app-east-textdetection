@@ -16,12 +16,16 @@ class EAST_td(ClamsApp):
         pass
 
     def _annotate(self, mmif: Union[str, dict, Mmif], **parameters) -> Mmif:
-        new_view = mmif.new_view()
-        config = self.get_configuration(**parameters)
-        self.sign_view(new_view, config)
-        if mmif.get_documents_by_type(DocumentTypes.VideoDocument):
-            mmif = run_EAST_video(mmif, new_view, **parameters)
-        elif mmif.get_documents_by_type(DocumentTypes.ImageDocument):
+        for videodocument in mmif.get_documents_by_type(DocumentTypes.VideoDocument):
+            # one view per video document
+            new_view = mmif.new_view()
+            self.sign_view(new_view, parameters)
+            config = self.get_configuration(**parameters)
+            mmif = run_EAST_video(mmif, videodocument, new_view, **config)
+        if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
+            # one view for all image documents
+            new_view = mmif.new_view()
+            self.sign_view(new_view, parameters)
             mmif = run_EAST_image(mmif, new_view)
         return mmif
 

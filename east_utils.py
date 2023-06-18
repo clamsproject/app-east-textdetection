@@ -6,12 +6,7 @@ from imutils.object_detection import non_max_suppression
 from mmif import Mmif, View, DocumentTypes, AnnotationTypes
 
 BOX_MIN_CONF = 0.1
-SAMPLE_RATIO = 30
 net = cv2.dnn.readNet("frozen_east_text_detection.pb")
-
-
-def process_image(f):
-    return f
 
 
 def decode_predictions(scores, geometry, box_min_conf=BOX_MIN_CONF):
@@ -106,6 +101,7 @@ def image_to_east_boxes(image: np.array) -> List[Tuple[int, int, int, int]]:
         box_list.append((startX, startY, endX, endY))
     return box_list
 
+
 def get_target_frame_numbers(mmif, frame_type, frames_per_segment=2):
     def convert_msec(time_msec):
         import math
@@ -124,9 +120,10 @@ def get_target_frame_numbers(mmif, frame_type, frames_per_segment=2):
         for tf_annotation in tf_view.get_annotations(AnnotationTypes.TimeFrame, frameType=frame_type)
     ]
     target_frames = list(set([int(f) for start, end in frame_number_ranges
-                                for f in np.linspace(start, end, frames_per_segment, dtype=int)]))
+                              for f in np.linspace(start, end, frames_per_segment, dtype=int)]))
 
     return target_frames
+
 
 def boxes_from_target_frames(target_frames:List[int], cap:cv2.VideoCapture, new_view:View):
     for frame_number in target_frames:
@@ -147,10 +144,7 @@ def run_EAST_video(mmif: Mmif, new_view: View, **kwargs) -> Mmif:
     cap = cv2.VideoCapture(mmif.get_document_location(DocumentTypes.VideoDocument))
     counter = 0
     idx = 0
-    if "stopAt" in kwargs:
-        stop_at = int(kwargs["stopAt"])
-    else:
-        stop_at = 30*60*60*5 #five hours
+    stop_at = int(kwargs["stopAt"])
     if "frameType" in kwargs:
         frame_type = kwargs["frameType"]
     else:
@@ -170,7 +164,7 @@ def run_EAST_video(mmif: Mmif, new_view: View, **kwargs) -> Mmif:
                     continue
             if not ret:
                 break
-            if (counter % SAMPLE_RATIO == 0) or (counter in target_frames):
+            if (counter % kwargs['sampleRatio'] == 0) or (counter in target_frames):
                 result_list = image_to_east_boxes(f)
                 for box in result_list:
                     idx += 1

@@ -21,8 +21,8 @@ def appmetadata() -> AppMetadata:
         identifier="east-textdetection",
         url="https://github.com/clamsproject/app-east-textdetection",
     )
-    metadata.add_input(DocumentTypes.VideoDocument)
-    metadata.add_input(AnnotationTypes.TimeFrame)
+    metadata.add_input_oneof(DocumentTypes.VideoDocument, DocumentTypes.ImageDocument)
+    metadata.add_input(AnnotationTypes.TimeFrame, required=False)
     metadata.add_output(AnnotationTypes.BoundingBox, bboxtype="string")
     metadata.add_output(AnnotationTypes.Alignment)
     metadata.add_output(AnnotationTypes.TimePoint)
@@ -32,26 +32,27 @@ def appmetadata() -> AppMetadata:
         type="string", 
         choices=["frames", "milliseconds"],
         default="frames",
-        description="Unit for output timepoint.",
+        description="Unit for time points in the output. Only works with VideoDocument input.",
     )
     metadata.add_parameter(
         name="frameType",
         type="string",
-        choices=["slate", "chyron"],
-        # TODO (krim @ 6/16/23): can be multivalued
-        description="Segment of video to run on.",
+        choices=["", "slate", "chyron"],
+        default="",
+        multivalued=True,
+        description="Segments of video to run on. Only works with VideoDocument input and TimeFrame input. Empty value means run on the every frame types.",
     )
     metadata.add_parameter(
         name="sampleRatio",
         type="integer",
         default="30",
-        description="Frequency to sample frames.",
+        description="Frequency to sample frames. Only works with VideoDocument input.",
     )
     metadata.add_parameter(
         name="stopAt",
         type="integer",
         default="540000",  # appr. 5 hours
-        description="Frame number to stop running.",
+        description="Frame number to stop running. Only works with VideoDocument input.",
     )
     
     return metadata
