@@ -179,14 +179,16 @@ def run_EAST_video(mmif: Mmif, new_view: View, **kwargs) -> Mmif:
     return mmif
 
 
-def run_EAST_image(mmif: Mmif, new_view:View) -> Mmif:
-    image = cv2.imread(mmif.get_document_location(DocumentTypes.ImageDocument))
-    box_list = image_to_east_boxes(image)
-    for idx, box in enumerate(box_list):
-        annotation = new_view.new_annotation(f"td{idx}", AnnotationTypes.BoundingBox)
-        annotation.add_property("boxType", "text")
-        x0, y0, x1, y1 = box
-        annotation.add_property(
-            "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
-        )
-    return mmif
+def run_on_images(mmif: Mmif, new_view: View) -> Mmif:
+    for imgdocument in mmif.get_documents_by_type(DocumentTypes.ImageDocument):
+        image = cv2.imread(imgdocument.location)
+        box_list = image_to_east_boxes(image)
+        for idx, box in enumerate(box_list):
+            annotation = new_view.new_annotation(f"td{idx}", AnnotationTypes.BoundingBox)
+            annotation.add_property("document", imgdocument.id)
+            annotation.add_property("boxType", "text")
+            x0, y0, x1, y1 = box
+            annotation.add_property(
+                "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
+            )
+        return mmif

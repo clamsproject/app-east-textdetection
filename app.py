@@ -26,7 +26,7 @@ class EAST_td(ClamsApp):
             # one view for all image documents
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
-            mmif = run_EAST_image(mmif, new_view)
+            mmif = run_on_images(mmif, new_view)
         return mmif
 
 
