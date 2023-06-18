@@ -52,7 +52,7 @@ class EastTextDetection(ClamsApp):
         frame_type = kwargs["frameType"]
         views_with_tframe = mmif.get_all_views_contain(AnnotationTypes.TimeFrame)
         if views_with_tframe:
-            target_frames = self.get_target_frame_numbers(views_with_tframe, frame_type, 2)
+            target_frames = self.get_target_frame_numbers(views_with_tframe, frame_type, 2, cap.get(cv2.CAP_PROP_FPS))
         else:
             target_frames = range(0, min(int(kwargs['stopAt']), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))), kwargs['sampleRatio'])
         self.boxes_from_target_frames(target_frames, cap, new_view, kwargs["timeUnit"])
@@ -80,10 +80,10 @@ class EastTextDetection(ClamsApp):
                 bb_annotation.add_property("coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]])
 
     @staticmethod
-    def get_target_frame_numbers(views_with_tframe, frame_types, frames_per_segment=2):
+    def get_target_frame_numbers(views_with_tframe, frame_types, frames_per_segment=2, video_fps=29.97):
         def convert_msec(time_msec):
             import math
-            return math.floor(time_msec * 29.97)  # todo 6/1/21 kelleylynch assuming frame rate
+            return math.floor(time_msec * video_fps)
 
         frame_number_ranges = []
         for tf_view in views_with_tframe:
