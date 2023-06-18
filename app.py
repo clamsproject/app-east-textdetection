@@ -3,7 +3,7 @@ from typing import Union
 
 # mostly likely you'll need these modules/classes
 from clams import ClamsApp, Restifier
-from mmif import Mmif, DocumentTypes, View, AnnotationTypes
+from mmif import Mmif, DocumentTypes, View, AnnotationTypes, Document
 
 from east_utils import *
 from east_utils import image_to_east_boxes
@@ -47,14 +47,16 @@ class EastTextDetection(ClamsApp):
                 )
             return mmif
 
-    def run_on_video(self, mmif: Mmif, new_view: View, **kwargs) -> Mmif:
-        cap = cv2.VideoCapture(mmif.get_document_location(DocumentTypes.VideoDocument))
-        frame_type = kwargs["frameType"]
+    def run_on_video(self, mmif: Mmif, videodocument: Document, new_view: View, **kwargs) -> Mmif:
+        cap = cv2.VideoCapture(videodocument.location)
+        frame_type = set(kwargs["frameType"])
+        frame_type.discard("")  # after this, if this set is empty, the next step will use "all" types
         views_with_tframe = mmif.get_all_views_contain(AnnotationTypes.TimeFrame)
         if views_with_tframe:
             target_frames = self.get_target_frame_numbers(views_with_tframe, frame_type, 2, cap.get(cv2.CAP_PROP_FPS))
         else:
-            target_frames = range(0, min(int(kwargs['stopAt']), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))), kwargs['sampleRatio'])
+            target_frames = list(range(0, min(int(kwargs['stopAt']), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))), kwargs['sampleRatio']))
+        target_frames.sort()
         self.boxes_from_target_frames(target_frames, cap, new_view, kwargs["timeUnit"])
         return mmif
 
@@ -91,7 +93,7 @@ class EastTextDetection(ClamsApp):
                 if not frame_types or tf_annotation.properties.get("frameType") in frame_types:
                     frame_number_ranges.append(
                         (tf_annotation.properties["start"], tf_annotation.properties["end"])
-                        if tf_view.metadata.get_parameter("timeUnit") in ["frames", "frame"]
+                        if 'frame' in tf_view.metadata.contains[AnnotationTypes.TimeFrame]['timeUnit']
                         else (convert_msec(tf_annotation.properties["start"]), convert_msec(tf_annotation.properties["end"]))
                     )
         target_frames = list(set([int(f) for start, end in frame_number_ranges
