@@ -129,7 +129,15 @@ def boxes_from_target_frames(target_frames: List[int], cap: cv2.VideoCapture, ne
         result_list = image_to_east_boxes(f)
         for box in result_list:
             bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-            bb_annotation.add_property("timePoint", frame_number)
+            if output_unit == "frames":
+                timepoint = frame_number
+            elif output_unit == "seconds":
+                timepoint = frame_number / cap.get(cv2.CAP_PROP_FPS)
+            elif output_unit == "milliseconds":
+                timepoint = frame_number / cap.get(cv2.CAP_PROP_FPS) * 1000
+            else:
+                raise ValueError(f"Invalid output time unit: {output_unit}")
+            bb_annotation.add_property("timePoint", timepoint)
             bb_annotation.add_property("boxType", "text")
             x0, y0, x1, y1 = box
             bb_annotation.add_property("coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]])
