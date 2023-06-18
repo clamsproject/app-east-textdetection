@@ -44,7 +44,7 @@ def appmetadata() -> AppMetadata:
         name="sampleRatio",
         type="integer",
         default="30",
-        description="Frequency to sample frames. Only works with VideoDocument input, and without TimeFrame input. (when `frameType` parameter is set, this parameter is ignored.)",
+        description="Frequency to sample frames. Only works with VideoDocument input, and without TimeFrame input. (when `TimeFrame` annotation is found, this parameter is ignored.)",
     )
     metadata.add_parameter(
         name="stopAt",

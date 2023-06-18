@@ -23,7 +23,7 @@ class EastTextDetection(ClamsApp):
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
             config = self.get_configuration(**parameters)
-            new_view.new_contain(AnnotationTypes.BoundingBox, timeUnit=config["timeUnit"])
+            new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=config["timeUnit"])
             mmif = self.run_on_video(mmif, videodocument, new_view, **config)
         if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             # one view for all image documents
@@ -49,10 +49,10 @@ class EastTextDetection(ClamsApp):
 
     def run_on_video(self, mmif: Mmif, videodocument: Document, new_view: View, **kwargs) -> Mmif:
         cap = cv2.VideoCapture(videodocument.location)
-        frame_type = set(kwargs["frameType"])
-        frame_type.discard("")  # after this, if this set is empty, the next step will use "all" types
         views_with_tframe = mmif.get_all_views_contain(AnnotationTypes.TimeFrame)
         if views_with_tframe:
+            frame_type = set(kwargs["frameType"])
+            frame_type.discard("")  # after this, if this set is empty, the next step will use "all" types
             target_frames = self.get_target_frame_numbers(views_with_tframe, frame_type, 2, cap.get(cv2.CAP_PROP_FPS))
         else:
             target_frames = list(range(0, min(int(kwargs['stopAt']), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))), kwargs['sampleRatio']))
@@ -68,14 +68,16 @@ class EastTextDetection(ClamsApp):
             result_list = image_to_east_boxes(f)
             for box in result_list:
                 bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-                if output_unit == "frames":
+                if 'frame' in output_unit:
                     timepoint = frame_number
-                elif output_unit == "seconds":
-                    timepoint = frame_number / cap.get(cv2.CAP_PROP_FPS)
-                elif output_unit == "milliseconds":
-                    timepoint = frame_number / cap.get(cv2.CAP_PROP_FPS) * 1000
                 else:
-                    raise ValueError(f"Invalid output time unit: {output_unit}")
+                    timepoint = frame_number / cap.get(cv2.CAP_PROP_FPS)
+                    if "millisecond" in output_unit:
+                        timepoint = int(timepoint * 1000)
+                    elif "second" in output_unit:
+                        timepoint = round(timepoint, 2)
+                    else:
+                        raise ValueError(f"Invalid output time unit: {output_unit}")
                 bb_annotation.add_property("timePoint", timepoint)
                 bb_annotation.add_property("boxType", "text")
                 x0, y0, x1, y1 = box
