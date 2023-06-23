@@ -3,15 +3,9 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 from imutils.object_detection import non_max_suppression
-from mmif import Mmif, View, DocumentTypes, AnnotationTypes
 
 BOX_MIN_CONF = 0.1
-SAMPLE_RATIO = 30
 net = cv2.dnn.readNet("frozen_east_text_detection.pb")
-
-
-def process_image(f):
-    return f
 
 
 def decode_predictions(scores, geometry, box_min_conf=BOX_MIN_CONF):
@@ -105,94 +99,3 @@ def image_to_east_boxes(image: np.array) -> List[Tuple[int, int, int, int]]:
         endY = int(endY * rH)
         box_list.append((startX, startY, endX, endY))
     return box_list
-
-def get_target_frame_numbers(mmif, frame_type, frames_per_segment=2):
-    def convert_msec(time_msec):
-        import math
-        return math.floor(time_msec * 29.97)  # todo 6/1/21 kelleylynch assuming frame rate
-
-    views_with_tframe = [
-        tf_view
-        for tf_view in mmif.get_all_views_contain(AnnotationTypes.TimeFrame)
-        if tf_view.get_annotations(AnnotationTypes.TimeFrame, frameType=frame_type)
-    ]
-    frame_number_ranges = [
-        (tf_annotation.properties["start"], tf_annotation.properties["end"])
-        if tf_view.metadata.get_parameter("timeUnit") in ["frames", "frame"]
-        else (convert_msec(tf_annotation.properties["start"]), convert_msec(tf_annotation.properties["end"]))
-        for tf_view in views_with_tframe
-        for tf_annotation in tf_view.get_annotations(AnnotationTypes.TimeFrame, frameType=frame_type)
-    ]
-    target_frames = list(set([int(f) for start, end in frame_number_ranges
-                                for f in np.linspace(start, end, frames_per_segment, dtype=int)]))
-
-    return target_frames
-
-def boxes_from_target_frames(target_frames:List[int], cap:cv2.VideoCapture, new_view:View):
-    for frame_number in target_frames:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-        _, f = cap.read()
-        result_list = image_to_east_boxes(f)
-        for box in result_list:
-            bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-            bb_annotation.add_property("boxType", "text")
-            x0, y0, x1, y1 = box
-            bb_annotation.add_property(
-                "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
-            )
-            bb_annotation.add_property("frame", frame_number)
-    
-
-def run_EAST_video(mmif: Mmif, new_view: View, **kwargs) -> Mmif:
-    cap = cv2.VideoCapture(mmif.get_document_location(DocumentTypes.VideoDocument))
-    counter = 0
-    idx = 0
-    if "stopAt" in kwargs:
-        stop_at = int(kwargs["stopAt"])
-    else:
-        stop_at = 30*60*60*5 #five hours
-    if "frameType" in kwargs:
-        frame_type = kwargs["frameType"]
-    else:
-        frame_type = ""
-    target_frames = []
-    if frame_type:
-        target_frames = get_target_frame_numbers(mmif, frame_type, 2)
-        boxes_from_target_frames(target_frames, cap, new_view)
-    else:
-        while cap.isOpened():
-            if counter > stop_at:
-                break
-            ret, f = cap.read()
-            if target_frames:
-                if counter not in target_frames:
-                    counter += 1 #todo move this
-                    continue
-            if not ret:
-                break
-            if (counter % SAMPLE_RATIO == 0) or (counter in target_frames):
-                result_list = image_to_east_boxes(f)
-                for box in result_list:
-                    idx += 1
-                    bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-                    bb_annotation.add_property("boxType", "text")
-                    x0, y0, x1, y1 = box
-                    bb_annotation.add_property(
-                        "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
-                    )
-                    bb_annotation.add_property("frame", counter)
-            counter += 1
-    return mmif
-
-
-def run_EAST_image(mmif: Mmif, new_view:View) -> Mmif:
-    image = cv2.imread(mmif.get_document_location(DocumentTypes.ImageDocument))
-    box_list = image_to_east_boxes(image)
-    for idx, box in enumerate(box_list):
-        annotation = new_view.new_annotation(f"td{idx}", AnnotationTypes.BoundingBox)
-        annotation.add_property("boxType", "text")
-        x0, y0, x1, y1 = box
-        annotation.add_property(
-            "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
-        )
-    return mmif

@@ -1,6 +1,7 @@
-imutils==0.5.2
-numpy==1.22.0
-opencv-python==4.4.0.44
-pytesseract==0.3.6
+clams-python==1.0.3
 
-clams-python==0.5.2
+opencv-python-rolling==4.7.*  # standard 4.7.x version (no rolling release) has bug with old CPUs
+imutils
+numpy
+pytesseract
+

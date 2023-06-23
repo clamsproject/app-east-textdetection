@@ -1,73 +1,125 @@
-from clams import ClamsApp
-from clams.appmetadata import AppMetadata
-from clams.restify import Restifier
+import argparse
+from typing import Union
+
+# mostly likely you'll need these modules/classes
+from clams import ClamsApp, Restifier
+from mmif import Mmif, DocumentTypes, View, AnnotationTypes, Document
 
 from east_utils import *
+from east_utils import image_to_east_boxes
 
-APP_VERSION = 0.1
 
+class EastTextDetection(ClamsApp):
 
-class EAST_td(ClamsApp):
+    def __init__(self):
+        super().__init__()
 
     def _appmetadata(self):
-        metadata = {
-            "name": "EAST Text Detection",
-            "description": "This tool applies EAST test detection to the video or image.",
-            "app_version": str(APP_VERSION),
-            "app_license": "MIT",
-            "url": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
-            "identifier": f"http://mmif.clams.ai/apps/east/{APP_VERSION}",
-            "input": [
-                {"@type": DocumentTypes.VideoDocument, "required": True},
-                {"@type": AnnotationTypes.TimeFrame, "required": False}
-            ],
-            "output": [{"@type": AnnotationTypes.BoundingBox, "properties": {"boxType": "string"}},
-                       {"@type": AnnotationTypes.Alignment, "properties":{}},
-                       {"@type": AnnotationTypes.TimePoint, "properties":{}}
-            ],
-            "parameters": [
-                {
-                    "name": "timeUnit",
-                    "type": "string",
-                    "choices": ["frames", "milliseconds"],
-                    "default": "frames",
-                    "description": "Unit for output timepoint.",
-                },
-                {
-                    "name": "frameType",
-                    "type": "string",
-                    "choices": ["slate", "chyron"],
-                    "default": " ",
-                    "description": "Segment of video to run on.",
-                },
-                {
-                    "name": "sampleRatio",
-                    "type": "integer",
-                    "default": "30",
-                    "description": "Frequency to sample frames.",
-                },
-                {
-                    "name": "stopAt",
-                    "type": "integer",
-                    "default": "540000", #appr. 5 hours
-                    "description": "Frame number to stop running.",
-                }
-            ],
-        }
-        return AppMetadata(**metadata)
+        pass
 
-    def _annotate(self, mmif: Mmif, **kwargs) -> str:
-        new_view = mmif.new_view()
-        config = self.get_configuration(**kwargs)
-        self.sign_view(new_view, config)
-        if mmif.get_documents_by_type(DocumentTypes.VideoDocument):
-            mmif = run_EAST_video(mmif, new_view, **kwargs)
-        elif mmif.get_documents_by_type(DocumentTypes.ImageDocument):
-            mmif = run_EAST_image(mmif, new_view)
+    def _annotate(self, mmif: Union[str, dict, Mmif], **parameters) -> Mmif:
+        for videodocument in mmif.get_documents_by_type(DocumentTypes.VideoDocument):
+            # one view per video document
+            new_view = mmif.new_view()
+            self.sign_view(new_view, parameters)
+            config = self.get_configuration(**parameters)
+            new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=config["timeUnit"])
+            mmif = self.run_on_video(mmif, videodocument, new_view, **config)
+        if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
+            # one view for all image documents
+            new_view = mmif.new_view()
+            self.sign_view(new_view, parameters)
+            new_view.new_contain(AnnotationTypes.BoundingBox)
+            mmif = self.run_on_images(mmif, new_view)
         return mmif
+
+    def run_on_images(self, mmif: Mmif, new_view: View) -> Mmif:
+        for imgdocument in mmif.get_documents_by_type(DocumentTypes.ImageDocument):
+            image = cv2.imread(imgdocument.location)
+            box_list = image_to_east_boxes(image)
+            for idx, box in enumerate(box_list):
+                annotation = new_view.new_annotation(f"td{idx}", AnnotationTypes.BoundingBox)
+                annotation.add_property("document", imgdocument.id)
+                annotation.add_property("boxType", "text")
+                x0, y0, x1, y1 = box
+                annotation.add_property(
+                    "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
+                )
+            return mmif
+
+    def run_on_video(self, mmif: Mmif, videodocument: Document, new_view: View, **kwargs) -> Mmif:
+        cap = cv2.VideoCapture(videodocument.location)
+        views_with_tframe = mmif.get_all_views_contain(AnnotationTypes.TimeFrame)
+        if views_with_tframe:
+            frame_type = set(kwargs["frameType"])
+            frame_type.discard("")  # after this, if this set is empty, the next step will use "all" types
+            target_frames = self.get_target_frame_numbers(views_with_tframe, frame_type, 2, cap.get(cv2.CAP_PROP_FPS))
+        else:
+            target_frames = list(range(0, min(int(kwargs['stopAt']), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))), kwargs['sampleRatio']))
+        target_frames.sort()
+        self.boxes_from_target_frames(target_frames, cap, new_view, kwargs["timeUnit"])
+        return mmif
+
+    @staticmethod
+    def boxes_from_target_frames(target_frames: List[int], cap: cv2.VideoCapture, new_view:View, output_unit: str):
+        for frame_number in target_frames:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            _, f = cap.read()
+            result_list = image_to_east_boxes(f)
+            for box in result_list:
+                bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
+                if 'frame' in output_unit:
+                    timepoint = frame_number
+                else:
+                    timepoint = frame_number / cap.get(cv2.CAP_PROP_FPS)
+                    if "millisecond" in output_unit:
+                        timepoint = int(timepoint * 1000)
+                    elif "second" in output_unit:
+                        timepoint = round(timepoint, 2)
+                    else:
+                        raise ValueError(f"Invalid output time unit: {output_unit}")
+                bb_annotation.add_property("timePoint", timepoint)
+                bb_annotation.add_property("boxType", "text")
+                x0, y0, x1, y1 = box
+                bb_annotation.add_property("coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]])
+
+    @staticmethod
+    def get_target_frame_numbers(views_with_tframe, frame_types, frames_per_segment=2, video_fps=29.97):
+        def convert_msec(time_msec):
+            import math
+            return math.floor(time_msec * video_fps)
+
+        frame_number_ranges = []
+        for tf_view in views_with_tframe:
+            for tf_annotation in tf_view.get_annotations(AnnotationTypes.TimeFrame):
+                if not frame_types or tf_annotation.properties.get("frameType") in frame_types:
+                    frame_number_ranges.append(
+                        (tf_annotation.properties["start"], tf_annotation.properties["end"])
+                        if 'frame' in tf_view.metadata.contains[AnnotationTypes.TimeFrame]['timeUnit']
+                        else (convert_msec(tf_annotation.properties["start"]), convert_msec(tf_annotation.properties["end"]))
+                    )
+        target_frames = list(set([int(f) for start, end in frame_number_ranges
+                                  for f in np.linspace(start, end, frames_per_segment, dtype=int)]))
+
+        return target_frames
 
 
 if __name__ == "__main__":
-    td_tool = EAST_td()
-    td_service = Restifier(td_tool)
-    td_service.run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--port", action="store", default="5000", help="set port to listen"
+    )
+    parser.add_argument("--production", action="store_true", help="run gunicorn server")
+    # more arguments as needed
+    # parser.add_argument(more_arg...)
+
+    parsed_args = parser.parse_args()
+
+    # create the app instance
+    app = EastTextDetection()
+
+    http_app = Restifier(app, port=int(parsed_args.port))
+    if parsed_args.production:
+        http_app.serve_production()
+    else:
+        http_app.run()
