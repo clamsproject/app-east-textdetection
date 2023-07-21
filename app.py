@@ -1,12 +1,16 @@
 import argparse
+import logging
 from typing import Union
 
-# mostly likely you'll need these modules/classes
+import cv2
+import numpy as np
 from clams import ClamsApp, Restifier
 from mmif import Mmif, DocumentTypes, View, AnnotationTypes, Document
+from mmif.utils import video_document_helper as vdh
 
-from east_utils import *
 from east_utils import image_to_east_boxes
+
+# logging.basicConfig(level=logging.DEBUG)
 
 
 class EastTextDetection(ClamsApp):
@@ -15,6 +19,7 @@ class EastTextDetection(ClamsApp):
         super().__init__()
 
     def _appmetadata(self):
+        # see metadata.py
         pass
 
     def _annotate(self, mmif: Union[str, dict, Mmif], **parameters) -> Mmif:
@@ -24,12 +29,14 @@ class EastTextDetection(ClamsApp):
             self.sign_view(new_view, parameters)
             config = self.get_configuration(**parameters)
             new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=config["timeUnit"])
+            logging.debug(f"Running on video {videodocument.location_path()}")
             mmif = self.run_on_video(mmif, videodocument, new_view, **config)
         if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             # one view for all image documents
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
             new_view.new_contain(AnnotationTypes.BoundingBox)
+            logging.debug(f"Running on all images")
             mmif = self.run_on_images(mmif, new_view)
         return mmif
 
@@ -47,62 +54,36 @@ class EastTextDetection(ClamsApp):
                 )
             return mmif
 
-    def run_on_video(self, mmif: Mmif, videodocument: Document, new_view: View, **kwargs) -> Mmif:
-        cap = cv2.VideoCapture(videodocument.location)
-        views_with_tframe = mmif.get_all_views_contain(AnnotationTypes.TimeFrame)
+    def run_on_video(self, mmif: Mmif, videodocument: Document, new_view: View, **config) -> Mmif:
+        views_with_tframe = [v for v in mmif.get_views_for_document(videodocument.id) 
+                             if v.metadata.contains[AnnotationTypes.TimeFrame]]
         if views_with_tframe:
-            frame_type = set(kwargs["frameType"])
+            frame_type = set(config["frameType"])
             frame_type.discard("")  # after this, if this set is empty, the next step will use "all" types
-            target_frames = self.get_target_frame_numbers(views_with_tframe, frame_type, 2, cap.get(cv2.CAP_PROP_FPS))
+            # now for each of frame of interest, we will sample 2 (hard-coded) frames, evenly distributed
+            target_frames = set()
+            target_frames.update(*[np.linspace(*vdh.convert_timeframe(mmif, a, 'frame'), 2, dtype=int)
+                                   for v in views_with_tframe for a in v.get_annotations(AnnotationTypes.TimeFrame)
+                                   if not frame_type or a.get_property("frameType") in frame_type])
+            target_frames = list(target_frames)
+            logging.debug(f"Processing frames {target_frames} from TimeFrame annotations of {frame_type} types")
         else:
-            target_frames = list(range(0, min(int(kwargs['stopAt']), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))), kwargs['sampleRatio']))
+            target_frames = vdh.sample_frames(
+                sample_ratio=config['sampleRatio'], start_frame=0, 
+                end_frame=min(int(config['stopAt']), videodocument.get_property("duration")), 
+            )
         target_frames.sort()
-        self.boxes_from_target_frames(target_frames, cap, new_view, kwargs["timeUnit"])
-        return mmif
-
-    @staticmethod
-    def boxes_from_target_frames(target_frames: List[int], cap: cv2.VideoCapture, new_view:View, output_unit: str):
-        for frame_number in target_frames:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-            _, f = cap.read()
-            result_list = image_to_east_boxes(f)
+        logging.debug(f"Running on frames {target_frames}")
+        for fn, fi in zip(target_frames, vdh.extract_frames_as_images(videodocument, target_frames)):
+            result_list = image_to_east_boxes(fi)
             for box in result_list:
                 bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-                if 'frame' in output_unit:
-                    timepoint = frame_number
-                else:
-                    timepoint = frame_number / cap.get(cv2.CAP_PROP_FPS)
-                    if "millisecond" in output_unit:
-                        timepoint = int(timepoint * 1000)
-                    elif "second" in output_unit:
-                        timepoint = round(timepoint, 2)
-                    else:
-                        raise ValueError(f"Invalid output time unit: {output_unit}")
-                bb_annotation.add_property("timePoint", timepoint)
+                bb_annotation.add_property("timePoint", vdh.convert(
+                    time=fn, in_unit='frame', out_unit=config['timeUnit'], fps=videodocument.get_property("fps")))
                 bb_annotation.add_property("boxType", "text")
                 x0, y0, x1, y1 = box
                 bb_annotation.add_property("coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]])
-
-    @staticmethod
-    def get_target_frame_numbers(views_with_tframe, frame_types, frames_per_segment=2, video_fps=29.97):
-        def convert_msec(time_msec):
-            import math
-            return math.floor(time_msec * video_fps)
-
-        frame_number_ranges = []
-        for tf_view in views_with_tframe:
-            for tf_annotation in tf_view.get_annotations(AnnotationTypes.TimeFrame):
-                if not frame_types or tf_annotation.properties.get("frameType") in frame_types:
-                    frame_number_ranges.append(
-                        (tf_annotation.properties["start"], tf_annotation.properties["end"])
-                        if 'frame' in tf_view.metadata.contains[AnnotationTypes.TimeFrame]['timeUnit']
-                        else (convert_msec(tf_annotation.properties["start"]), convert_msec(tf_annotation.properties["end"]))
-                    )
-        target_frames = list(set([int(f) for start, end in frame_number_ranges
-                                  for f in np.linspace(start, end, frames_per_segment, dtype=int)]))
-
-        return target_frames
-
+        return mmif
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

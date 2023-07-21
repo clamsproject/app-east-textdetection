@@ -2,7 +2,7 @@
 
 This app is a text localization app based on OpenCV and EAST text detection model. 
 
-General user instruction for CLAMS apps is available at [CLAMS Apps documentation](https://apps.clams.ai/clamsapp/).
+General user instruction for CLAMS apps is available at [CLAMS Apps documentation](https://apps.clams.ai/clamsapp).
 
 ### Usage
 

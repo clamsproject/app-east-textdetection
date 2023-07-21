@@ -21,21 +21,19 @@ def appmetadata() -> AppMetadata:
     )
     metadata.add_input_oneof(DocumentTypes.VideoDocument, DocumentTypes.ImageDocument)
     metadata.add_input(AnnotationTypes.TimeFrame, required=False)
-    metadata.add_output(AnnotationTypes.BoundingBox, bboxtype="string")
-    metadata.add_output(AnnotationTypes.Alignment)
-    metadata.add_output(AnnotationTypes.TimePoint)
+    metadata.add_output(AnnotationTypes.BoundingBox, bboxtype="text")
 
     metadata.add_parameter(
         name="timeUnit", 
         type="string", 
-        choices=["frames", "milliseconds"],
+        choices=["frames", "seconds", "milliseconds"],
         default="frames",
         description="Unit for time points in the output. Only works with VideoDocument input.",
     )
     metadata.add_parameter(
         name="frameType",
         type="string",
-        choices=["", "slate", "chyron"],
+        choices=["", "slate", "chyron", "rolling-credit"],
         default="",
         multivalued=True,
         description="Segments of video to run on. Only works with VideoDocument input and TimeFrame input. Empty value means run on the every frame types.",
@@ -49,8 +47,8 @@ def appmetadata() -> AppMetadata:
     metadata.add_parameter(
         name="stopAt",
         type="integer",
-        default="540000",  # appr. 5 hours
-        description="Frame number to stop running. Only works with VideoDocument input. The default is 5400000, or roughly 5 hours of video at 30fps.",
+        default="2 * 60 * 60 * 30",  # ~2 hours of video at 30fps
+        description="Frame number to stop running. Only works with VideoDocument input. The default is roughly 2 hours of video at 30fps.",
     )
     
     return metadata
@@ -62,4 +60,4 @@ if __name__ == '__main__':
     metadata = appmetadata()
     for param in ClamsApp.universal_parameters:
         metadata.add_parameter(**param)
-    sys.stdout.write(appmetadata().jsonify(pretty=True))
+    sys.stdout.write(metadata.jsonify(pretty=True))
