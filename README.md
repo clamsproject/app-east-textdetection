@@ -1,9 +1,14 @@
+# EAST wrapper
+
+## Description
+This CLAMS app is a text localization app based on OpenCV and EAST text detection model. 
+
 ## User instruction
-
-This app is a text localization app based on OpenCV and EAST text detection model. 
-
 General user instruction for CLAMS apps is available at [CLAMS Apps documentation](https://apps.clams.ai/clamsapp).
 
+### System requirments
+* [OpenCV 4](https://docs.opencv.org/4.x/index.html)
+ 
 ### Usage
 
 This is an OpenCV-based text localization app that used EAST text detection model. 
@@ -29,6 +34,4 @@ When there's no `TimeFrame` annotation to use, the app automatically runs in res
 
 For the full list of parameters, please refer to the app metadata from [CLAMS App Directory](https://apps.clams.ai/clamsapp/) or [`metadata.py`](metadata.py) file in this repository.
 
-### System requirments
-* [OpenCV 4](https://docs.opencv.org/4.x/index.html)
  

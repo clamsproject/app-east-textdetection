@@ -10,8 +10,6 @@ from mmif.utils import video_document_helper as vdh
 
 from east_utils import image_to_east_boxes
 
-# logging.basicConfig(level=logging.DEBUG)
-
 
 class EastTextDetection(ClamsApp):
 
@@ -29,14 +27,14 @@ class EastTextDetection(ClamsApp):
             self.sign_view(new_view, parameters)
             config = self.get_configuration(**parameters)
             new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=config["timeUnit"])
-            logging.debug(f"Running on video {videodocument.location_path()}")
+            self.logger.debug(f"Running on video {videodocument.location_path()}")
             mmif = self.run_on_video(mmif, videodocument, new_view, **config)
         if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             # one view for all image documents
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
             new_view.new_contain(AnnotationTypes.BoundingBox)
-            logging.debug(f"Running on all images")
+            self.logger.debug(f"Running on all images")
             mmif = self.run_on_images(mmif, new_view)
         return mmif
 
@@ -55,6 +53,7 @@ class EastTextDetection(ClamsApp):
             return mmif
 
     def run_on_video(self, mmif: Mmif, videodocument: Document, new_view: View, **config) -> Mmif:
+        cap = vdh.capture(videodocument)
         views_with_tframe = [v for v in mmif.get_views_for_document(videodocument.id) 
                              if v.metadata.contains[AnnotationTypes.TimeFrame]]
         if views_with_tframe:
@@ -66,20 +65,22 @@ class EastTextDetection(ClamsApp):
                                    for v in views_with_tframe for a in v.get_annotations(AnnotationTypes.TimeFrame)
                                    if not frame_type or a.get_property("frameType") in frame_type])
             target_frames = list(target_frames)
-            logging.debug(f"Processing frames {target_frames} from TimeFrame annotations of {frame_type} types")
+            self.logger.debug(f"Processing frames {target_frames} from TimeFrame annotations of {frame_type} types")
         else:
             target_frames = vdh.sample_frames(
                 sample_ratio=config['sampleRatio'], start_frame=0, 
-                end_frame=min(int(config['stopAt']), videodocument.get_property("duration")), 
+                end_frame=min(int(config['stopAt']), videodocument.get_property("frameCount"))
             )
         target_frames.sort()
-        logging.debug(f"Running on frames {target_frames}")
+        self.logger.debug(f"Running on frames {target_frames}")
         for fn, fi in zip(target_frames, vdh.extract_frames_as_images(videodocument, target_frames)):
+            self.logger.debug(f"Processing frame {fn}")
             result_list = image_to_east_boxes(fi)
             for box in result_list:
                 bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-                bb_annotation.add_property("timePoint", vdh.convert(
-                    time=fn, in_unit='frame', out_unit=config['timeUnit'], fps=videodocument.get_property("fps")))
+                tp = vdh.convert(time=fn, in_unit='frame', out_unit=config['timeUnit'], fps=videodocument.get_property("fps"))
+                self.logger.debug(f"Adding a timepoint at frame: {fn} >> {tp}")
+                bb_annotation.add_property("timePoint", tp)
                 bb_annotation.add_property("boxType", "text")
                 x0, y0, x1, y1 = box
                 bb_annotation.add_property("coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]])
@@ -87,11 +88,9 @@ class EastTextDetection(ClamsApp):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--port", action="store", default="5000", help="set port to listen"
-    )
+    parser.add_argument("--port", action="store", default="5000", help="set port to listen" )
     parser.add_argument("--production", action="store_true", help="run gunicorn server")
-    # more arguments as needed
+    # add more arguments as needed
     # parser.add_argument(more_arg...)
 
     parsed_args = parser.parse_args()
@@ -100,7 +99,10 @@ if __name__ == "__main__":
     app = EastTextDetection()
 
     http_app = Restifier(app, port=int(parsed_args.port))
+    # for running the application in production mode
     if parsed_args.production:
         http_app.serve_production()
+    # development mode
     else:
+        app.logger.setLevel(logging.DEBUG)
         http_app.run()
