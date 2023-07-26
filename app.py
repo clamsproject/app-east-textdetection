@@ -64,7 +64,7 @@ class EastTextDetection(ClamsApp):
             target_frames.update(*[np.linspace(*vdh.convert_timeframe(mmif, a, 'frame'), 2, dtype=int)
                                    for v in views_with_tframe for a in v.get_annotations(AnnotationTypes.TimeFrame)
                                    if not frame_type or a.get_property("frameType") in frame_type])
-            target_frames = list(target_frames)
+            target_frames = list(map(int, target_frames))
             self.logger.debug(f"Processing frames {target_frames} from TimeFrame annotations of {frame_type} types")
         else:
             target_frames = vdh.sample_frames(
