@@ -47,10 +47,15 @@ def appmetadata() -> AppMetadata:
     metadata.add_parameter(
         name="stopAt",
         type="integer",
-        default="2 * 60 * 60 * 30",  # ~2 hours of video at 30fps
+        default=108000,  # ~2 hours of video at 30fps 1 * 60 * 60 * 30
         description="Frame number to stop running. Only works with VideoDocument input. The default is roughly 2 hours of video at 30fps.",
     )
-    
+    metadata.add_parameter(
+        name="mergeBoxes",
+        type="boolean",
+        default=False,
+        description="if True, creates a single merged bounding box from all detected boxes."
+    )
     return metadata
 
 
