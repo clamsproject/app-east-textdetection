@@ -39,10 +39,6 @@ class EastTextDetection(ClamsApp):
             mmif = self.run_on_images(mmif, new_view)
         return mmif
 
-                
-    def concat_boxes(box_group):
-        pass 
-
     def run_on_images(self, mmif: Mmif, new_view: View) -> Mmif:
         for imgdocument in mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             image = cv2.imread(imgdocument.location)
