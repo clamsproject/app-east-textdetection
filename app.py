@@ -1,8 +1,9 @@
 import argparse
 import logging
-from typing import Union
+from typing import Union, Sequence
 
 import cv2
+import itertools
 import numpy as np
 from clams import ClamsApp, Restifier
 from mmif import Mmif, DocumentTypes, View, AnnotationTypes, Document
@@ -80,11 +81,23 @@ class EastTextDetection(ClamsApp):
                 bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
                 tp = vdh.convert(time=fn, in_unit='frame', out_unit=config['timeUnit'], fps=videodocument.get_property("fps"))
                 self.logger.debug(f"Adding a timepoint at frame: {fn} >> {tp}")
-                bb_annotation.add_property("timePoint", tp)
+
+                tp_annotation = new_view.new_annotation(AnnotationTypes.TimePoint)
+                tp_annotation.add_property("timeUnit", config["timeUnit"])
+                tp_annotation.add_property("timePoint", tp)
+
+                #bb_annotation.add_property("timePoint", tp)
                 bb_annotation.add_property("boxType", "text")
                 x0, y0, x1, y1 = box
                 bb_annotation.add_property("coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]])
+
+                alignment_annotation = new_view.new_annotation(AnnotationTypes.Alignment)
+                alignment_annotation.add_property("source", tp_annotation.id)
+                alignment_annotation.add_property("target", bb_annotation.id)
+
         return mmif
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
