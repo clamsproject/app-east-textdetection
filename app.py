@@ -22,6 +22,20 @@ class EastTextDetection(ClamsApp):
         pass
 
     def _annotate(self, mmif: Union[str, dict, Mmif], **parameters) -> Mmif:
+        """Internal Annotate Wrapper Method
+        
+        Generates a new set of annotations for `mmif` 
+        via EAST Text Detection on Videos and Images. 
+
+        ### params 
+        + mmif => a mmif object
+        + **parameters => runtime parameters (see `metadata.py`)
+        
+        ### returns
+        + mmif object, with new app annotations.
+        """
+        
+        # Run app on contained VideoDocument(s) in MMIF
         for videodocument in mmif.get_documents_by_type(DocumentTypes.VideoDocument):
             # one view per video document
             new_view = mmif.new_view()
@@ -31,6 +45,7 @@ class EastTextDetection(ClamsApp):
             self.logger.debug(f"Running on video {videodocument.location_path()}")
             mmif = self.run_on_video(mmif, videodocument, new_view, **config)
 
+        # Run app on contained ImageDocument(s) in MMIF
         if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             # one view for all image documents
             new_view = mmif.new_view()
@@ -38,9 +53,19 @@ class EastTextDetection(ClamsApp):
             new_view.new_contain(AnnotationTypes.BoundingBox)
             self.logger.debug(f"Running on all images")
             mmif = self.run_on_images(mmif, new_view)
+        
         return mmif
 
     def run_on_images(self, mmif: Mmif, new_view: View) -> Mmif:
+        """Run EAST on ImageDocuments
+
+        ### params
+        + mmif => Mmif Object 
+        + new_view => a single mmif View (representing all ImageDocuments)
+
+        ### returns
+        + mmif, annotated with boundingboxes
+        """
         for imgdocument in mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             image = cv2.imread(imgdocument.location)
             box_list = image_to_east_boxes(image)
@@ -55,6 +80,16 @@ class EastTextDetection(ClamsApp):
             return mmif
 
     def run_on_video(self, mmif: Mmif, videodocument: Document, new_view: View, **config) -> Mmif:
+        """Run EAST on a VideoDocument
+
+        ### params
+        + mmif => Mmif Object 
+        + videodocument => VideoDocument file
+        + new_view => a single mmif View
+
+        ### returns
+        + mmif, annotated with boundingboxes
+        """
         cap = vdh.capture(videodocument)
         views_with_tframe = [v for v in mmif.get_views_for_document(videodocument.id) 
                              if v.metadata.contains[AnnotationTypes.TimeFrame]]
