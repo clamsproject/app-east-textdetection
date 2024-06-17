@@ -19,6 +19,14 @@ ENV CLAMS_APP_VERSION ${CLAMS_APP_VERSION}
 # install more system packages as needed using the apt manager
 ################################################################################
 
+# https://github.com/openai/whisper/blob/ba3f3cd54b0e5b8ce1ab3de13e32122d0d5f98ab/whisper/__init__.py#L130
+ENV XDG_CACHE_HOME='/cache'  
+# https://huggingface.co/docs/huggingface_hub/main/en/package_reference/environment_variables#hfhome
+ENV HF_HOME="/cache/huggingface"
+# https://pytorch.org/docs/stable/hub.html#where-are-my-downloaded-models-saved
+ENV TORCH_HOME="/cache/torch"
+
+RUN mkdir /cache && rm -rf /root/.cache && ln -s /cache /root/.cache
 ################################################################################
 # main app installation
 COPY ./ /app

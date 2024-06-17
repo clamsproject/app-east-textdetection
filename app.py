@@ -30,6 +30,7 @@ class EastTextDetection(ClamsApp):
             new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=config["timeUnit"])
             self.logger.debug(f"Running on video {videodocument.location_path()}")
             mmif = self.run_on_video(mmif, videodocument, new_view, **config)
+
         if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             # one view for all image documents
             new_view = mmif.new_view()
@@ -69,8 +70,9 @@ class EastTextDetection(ClamsApp):
             self.logger.debug(f"Processing frames {target_frames} from TimeFrame annotations of {frame_type} types")
         else:
             target_frames = vdh.sample_frames(
-                sample_ratio=config['sampleRatio'], start_frame=0, 
-                end_frame=min(int(config['stopAt']), videodocument.get_property("frameCount"))
+                start_frame=0, 
+                end_frame=min(int(config['stopAt']), videodocument.get_property("frameCount")),
+                sample_rate=config['sampleRatio']
             )
         target_frames.sort()
         self.logger.debug(f"Running on frames {target_frames}")
@@ -97,9 +99,16 @@ class EastTextDetection(ClamsApp):
 
         return mmif
 
-
+def get_app():
+    """
+    This function effectively creates an instance of the app class, without any arguments passed in, meaning, any 
+    external information such as initial app configuration should be set without using function arguments. The easiest
+    way to do this is to set global variables before calling this. 
+    """
+    return EastTextDetection()
 
 if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", action="store", default="5000", help="set port to listen" )
     parser.add_argument("--production", action="store_true", help="run gunicorn server")
@@ -109,8 +118,8 @@ if __name__ == "__main__":
     parsed_args = parser.parse_args()
 
     # create the app instance
-    app = EastTextDetection()
-
+    app = get_app()
+    
     http_app = Restifier(app, port=int(parsed_args.port))
     # for running the application in production mode
     if parsed_args.production:
