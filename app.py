@@ -2,6 +2,7 @@ import argparse
 import logging
 from typing import Union, Sequence
 
+import copy
 import cv2
 import itertools
 import numpy as np
@@ -40,7 +41,7 @@ class EastTextDetection(ClamsApp):
             # one view per video document
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
-            config = self.get_configuration(**parameters)
+            config = parameters
             new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=config["timeUnit"])
             self.logger.debug(f"Running on video {videodocument.location_path()}")
             mmif = self.run_on_video(mmif, videodocument, new_view, **config)
@@ -102,21 +103,20 @@ class EastTextDetection(ClamsApp):
                                    for v in views_with_tframe for a in v.get_annotations(AnnotationTypes.TimeFrame)
                                    if not frame_type or a.get_property("frameType") in frame_type])
             target_frames = list(map(int, target_frames))
-            self.logger.debug(f"Processing frames {target_frames} from TimeFrame annotations of {frame_type} types")
         else:
             target_frames = vdh.sample_frames(
                 start_frame=0, 
                 end_frame=min(int(config['stopAt']), videodocument.get_property("frameCount")),
                 sample_rate=config['sampleRatio']
             )
+
         target_frames.sort()
-        self.logger.debug(f"Running on frames {target_frames}")
-        for fn, fi in zip(target_frames, vdh.extract_frames_as_images(videodocument, target_frames)):
-            self.logger.debug(f"Processing frame {fn}")
+
+        for fn, fi in zip(target_frames, vdh.extract_frames_as_images(videodocument, copy.deepcopy(target_frames))):
             result_list = image_to_east_boxes(fi)
             for box in result_list:
                 bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-                tp = vdh.convert(time=fn, in_unit='frame', out_unit=config['timeUnit'], fps=videodocument.get_property("fps"))
+                tp = vdh.convert(t=fn, in_unit='frame', out_unit=config['timeUnit'], fps=videodocument.get_property("fps"))
                 self.logger.debug(f"Adding a timepoint at frame: {fn} >> {tp}")
 
                 tp_annotation = new_view.new_annotation(AnnotationTypes.TimePoint)
