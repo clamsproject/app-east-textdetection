@@ -39,7 +39,7 @@ def appmetadata() -> AppMetadata:
         description="Segments of video to run on. Only works with VideoDocument input and TimeFrame input. Empty value means run on the every frame types.",
     )
     metadata.add_parameter(
-        name="sampleRatio",
+        name="sampleRate",
         type="integer",
         default=30,
         description="Frequency to sample frames. Only works with VideoDocument input, and without TimeFrame input. (when `TimeFrame` annotation is found, this parameter is ignored.)",

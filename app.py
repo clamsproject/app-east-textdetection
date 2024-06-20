@@ -41,10 +41,9 @@ class EastTextDetection(ClamsApp):
             # one view per video document
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
-            config = parameters
-            new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=config["timeUnit"])
+            new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=parameters["timeUnit"])
             self.logger.debug(f"Running on video {videodocument.location_path()}")
-            mmif = self.run_on_video(mmif, videodocument, new_view, **config)
+            mmif = self.run_on_video(mmif, videodocument, new_view, **parameters)
 
         # Run app on contained ImageDocument(s) in MMIF
         if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
@@ -107,7 +106,7 @@ class EastTextDetection(ClamsApp):
             target_frames = vdh.sample_frames(
                 start_frame=0, 
                 end_frame=min(int(config['stopAt']), videodocument.get_property("frameCount")),
-                sample_rate=config['sampleRatio']
+                sample_rate=config['sampleRate']
             )
 
         target_frames.sort()
