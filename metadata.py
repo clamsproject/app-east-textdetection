@@ -39,15 +39,15 @@ def appmetadata() -> AppMetadata:
         description="Segments of video to run on. Only works with VideoDocument input and TimeFrame input. Empty value means run on the every frame types.",
     )
     metadata.add_parameter(
-        name="sampleRatio",
+        name="sampleRate",
         type="integer",
-        default="30",
+        default=30,
         description="Frequency to sample frames. Only works with VideoDocument input, and without TimeFrame input. (when `TimeFrame` annotation is found, this parameter is ignored.)",
     )
     metadata.add_parameter(
         name="stopAt",
         type="integer",
-        default=108000,  # ~2 hours of video at 30fps 1 * 60 * 60 * 30
+        default=2 * 60 * 60 * 30,  # ~2 hours of video at 30fps 1 * 60 * 60 * 30
         description="Frame number to stop running. Only works with VideoDocument input. The default is roughly 2 hours of video at 30fps.",
     )
     metadata.add_parameter(

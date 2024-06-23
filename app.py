@@ -2,6 +2,7 @@ import argparse
 import logging
 from typing import Union, Sequence
 
+import copy
 import cv2
 import itertools
 import numpy as np
@@ -22,14 +23,29 @@ class EastTextDetection(ClamsApp):
         pass
 
     def _annotate(self, mmif: Union[str, dict, Mmif], **parameters) -> Mmif:
+        """Internal Annotate Wrapper Method
+        
+        Generates a new set of annotations for `mmif` 
+        via EAST Text Detection on Videos and Images. 
+
+        ### params 
+        + mmif => a mmif object
+        + **parameters => runtime parameters (see `metadata.py`)
+        
+        ### returns
+        + mmif object, with new app annotations.
+        """
+        
+        # Run app on contained VideoDocument(s) in MMIF
         for videodocument in mmif.get_documents_by_type(DocumentTypes.VideoDocument):
             # one view per video document
             new_view = mmif.new_view()
             self.sign_view(new_view, parameters)
-            config = self.get_configuration(**parameters)
-            new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=config["timeUnit"])
+            new_view.new_contain(AnnotationTypes.BoundingBox, document=videodocument.id, timeUnit=parameters["timeUnit"])
             self.logger.debug(f"Running on video {videodocument.location_path()}")
-            mmif = self.run_on_video(mmif, videodocument, new_view, **config)
+            mmif = self.run_on_video(mmif, videodocument, new_view, **parameters)
+
+        # Run app on contained ImageDocument(s) in MMIF
         if mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             # one view for all image documents
             new_view = mmif.new_view()
@@ -37,9 +53,19 @@ class EastTextDetection(ClamsApp):
             new_view.new_contain(AnnotationTypes.BoundingBox)
             self.logger.debug(f"Running on all images")
             mmif = self.run_on_images(mmif, new_view)
+        
         return mmif
 
     def run_on_images(self, mmif: Mmif, new_view: View) -> Mmif:
+        """Run EAST on ImageDocuments
+
+        ### params
+        + mmif => Mmif Object 
+        + new_view => a single mmif View (representing all ImageDocuments)
+
+        ### returns
+        + mmif, annotated with boundingboxes
+        """
         for imgdocument in mmif.get_documents_by_type(DocumentTypes.ImageDocument):
             image = cv2.imread(imgdocument.location)
             box_list = image_to_east_boxes(image)
@@ -54,6 +80,16 @@ class EastTextDetection(ClamsApp):
             return mmif
 
     def run_on_video(self, mmif: Mmif, videodocument: Document, new_view: View, **config) -> Mmif:
+        """Run EAST on a VideoDocument
+
+        ### params
+        + mmif => Mmif Object 
+        + videodocument => VideoDocument file
+        + new_view => a single mmif View
+
+        ### returns
+        + mmif, annotated with boundingboxes
+        """
         cap = vdh.capture(videodocument)
         views_with_tframe = [v for v in mmif.get_views_for_document(videodocument.id) 
                              if v.metadata.contains[AnnotationTypes.TimeFrame]]
@@ -66,20 +102,20 @@ class EastTextDetection(ClamsApp):
                                    for v in views_with_tframe for a in v.get_annotations(AnnotationTypes.TimeFrame)
                                    if not frame_type or a.get_property("frameType") in frame_type])
             target_frames = list(map(int, target_frames))
-            self.logger.debug(f"Processing frames {target_frames} from TimeFrame annotations of {frame_type} types")
         else:
             target_frames = vdh.sample_frames(
-                sample_ratio=config['sampleRatio'], start_frame=0, 
-                end_frame=min(int(config['stopAt']), videodocument.get_property("frameCount"))
+                start_frame=0, 
+                end_frame=min(int(config['stopAt']), videodocument.get_property("frameCount")),
+                sample_rate=config['sampleRate']
             )
+
         target_frames.sort()
-        self.logger.debug(f"Running on frames {target_frames}")
-        for fn, fi in zip(target_frames, vdh.extract_frames_as_images(videodocument, target_frames)):
-            self.logger.debug(f"Processing frame {fn}")
+
+        for fn, fi in zip(target_frames, vdh.extract_frames_as_images(videodocument, copy.deepcopy(target_frames))):
             result_list = image_to_east_boxes(fi)
             for box in result_list:
                 bb_annotation = new_view.new_annotation(AnnotationTypes.BoundingBox)
-                tp = vdh.convert(time=fn, in_unit='frame', out_unit=config['timeUnit'], fps=videodocument.get_property("fps"))
+                tp = vdh.convert(t=fn, in_unit='frame', out_unit=config['timeUnit'], fps=videodocument.get_property("fps"))
                 self.logger.debug(f"Adding a timepoint at frame: {fn} >> {tp}")
 
                 tp_annotation = new_view.new_annotation(AnnotationTypes.TimePoint)
@@ -97,9 +133,16 @@ class EastTextDetection(ClamsApp):
 
         return mmif
 
-
+def get_app():
+    """
+    This function effectively creates an instance of the app class, without any arguments passed in, meaning, any 
+    external information such as initial app configuration should be set without using function arguments. The easiest
+    way to do this is to set global variables before calling this. 
+    """
+    return EastTextDetection()
 
 if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", action="store", default="5000", help="set port to listen" )
     parser.add_argument("--production", action="store_true", help="run gunicorn server")
@@ -109,8 +152,8 @@ if __name__ == "__main__":
     parsed_args = parser.parse_args()
 
     # create the app instance
-    app = EastTextDetection()
-
+    app = get_app()
+    
     http_app = Restifier(app, port=int(parsed_args.port))
     # for running the application in production mode
     if parsed_args.production:
