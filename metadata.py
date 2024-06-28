@@ -21,7 +21,7 @@ def appmetadata() -> AppMetadata:
     )
     metadata.add_input_oneof(DocumentTypes.VideoDocument, DocumentTypes.ImageDocument)
     metadata.add_input(AnnotationTypes.TimeFrame, required=False)
-    metadata.add_output(AnnotationTypes.BoundingBox, bboxtype="text")
+    metadata.add_output(AnnotationTypes.BoundingBox, label="text")
 
     metadata.add_parameter(
         name="timeUnit", 

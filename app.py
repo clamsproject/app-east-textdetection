@@ -72,7 +72,7 @@ class EastTextDetection(ClamsApp):
             for idx, box in enumerate(box_list):
                 annotation = new_view.new_annotation(f"td{idx}", AnnotationTypes.BoundingBox)
                 annotation.add_property("document", imgdocument.id)
-                annotation.add_property("boxType", "text")
+                annotation.add_property("label", "text")
                 x0, y0, x1, y1 = box
                 annotation.add_property(
                     "coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]
@@ -123,7 +123,7 @@ class EastTextDetection(ClamsApp):
                 tp_annotation.add_property("timePoint", tp)
 
                 #bb_annotation.add_property("timePoint", tp)
-                bb_annotation.add_property("boxType", "text")
+                bb_annotation.add_property("label", "text")
                 x0, y0, x1, y1 = box
                 bb_annotation.add_property("coordinates", [[x0, y0], [x1, y0], [x0, y1], [x1, y1]])
 
