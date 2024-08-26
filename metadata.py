@@ -33,7 +33,6 @@ def appmetadata() -> AppMetadata:
     metadata.add_parameter(
         name="frameType",
         type="string",
-        choices=["", "slate", "chyron", "rolling-credit"],
         default="",
         multivalued=True,
         description="Segments of video to run on. Only works with VideoDocument input and TimeFrame input. Empty value means run on the every frame types.",

@@ -91,8 +91,7 @@ class EastTextDetection(ClamsApp):
         + mmif, annotated with boundingboxes
         """
         cap = vdh.capture(videodocument)
-        views_with_tframe = [v for v in mmif.get_views_for_document(videodocument.id) 
-                             if v.metadata.contains[AnnotationTypes.TimeFrame]]
+        views_with_tframe = mmif.get_views_contain(AnnotationTypes.TimeFrame)
         if views_with_tframe:
             frame_type = set(config["frameType"])
             frame_type.discard("")  # after this, if this set is empty, the next step will use "all" types
