@@ -143,7 +143,7 @@ def get_app():
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", action="store", default="3000", help="set port to listen" )
+    parser.add_argument("--port", action="store", default="5000", help="set port to listen" )
     parser.add_argument("--production", action="store_true", help="run gunicorn server")
     # add more arguments as needed
     # parser.add_argument(more_arg...)
